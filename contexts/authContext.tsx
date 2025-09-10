@@ -1,13 +1,33 @@
 import { auth, firestore } from "@/config/firebase";
 import { AuthContextType, UserType } from "@/types";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "expo-router";
+import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { createContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children})=>{
   const [user, setUser] = useState<UserType>(null)
+  const router = useRouter();
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      if(firebaseUser) {
+        setUser({
+          uid: firebaseUser?.uid,
+          email: firebaseUser?.email,
+          name: firebaseUser?.displayName
+        })
+        updateUserData(firebaseUser.uid);
+        router.replace("/(tabs)")
+      } else {
+        setUser(null)
+        router.replace("/(auth)/welcome")
+      }
+    }) 
+
+    return () => unsub();  
+  },[])
 
   const login = async (email: string, password: string) => {
     try {
@@ -15,6 +35,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children})=
       return {success: true}
     } catch(error: any) {
       let msg = error.message;
+      if(msg.include("/(auth/invalid-credential)")) msg = "Wrong credential"
+      if(msg.include("/(auth/invalid-email)")) msg = "Invalid email"
       return { success: false, msg}
     }
   }
@@ -30,6 +52,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children})=
       return {success: true}
     } catch(error: any) {
       let msg = error.message;
+      if(msg.include("/(auth/email-alredy-in-use)")) msg = "This email is already in use"
       return { success: false, msg}
     }
   };
@@ -49,7 +72,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children})=
         setUser({...userData})
       }
     } catch(error: any) {
-      let msg = error.message;
       console.log("error:", error)
     }
   }
@@ -63,8 +85,17 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({children})=
   }
 
   return(
-    <AuthContext.Provider value{contextValue}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   )
+}
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext)
+  if(!context) {
+    throw new Error("useAuth must be wrapper inside AuthProvider")
+  }
+
+  return context;
 }
