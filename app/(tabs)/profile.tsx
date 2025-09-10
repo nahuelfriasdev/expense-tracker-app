@@ -1,10 +1,11 @@
-import { Text, View } from "react-native"
+import ScreenWrapper from "@/components/ScreenWrapper"
+import { Text } from "react-native"
 
 const profile = () => {
   return(
-    <View>
+    <ScreenWrapper >
       <Text>dsadsa</Text>
-    </View>
+    </ScreenWrapper >
   )
 }
 
